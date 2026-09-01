@@ -11,19 +11,28 @@ const CREATOR_APP=process.env.CREATOR_APP||'loan-management-backend-system';
 const CREATOR_CUSTOMER_FORM=process.env.CREATOR_CUSTOMER_FORM||'customer_profile';
 const CREATOR_API_BASE=process.env.CREATOR_API_BASE||'https://www.zohoapis.eu/creator/v2.1';
 const ZOHO_ACCOUNTS_URL=process.env.ZOHO_ACCOUNTS_URL||'https://accounts.zoho.eu';
+const SLATE_ORIGIN='https://lms-repo-xlfgljhb.onslate.eu';
 
 app.use((req,res,next)=>{
  const origin=req.headers.origin;
- const configured=String(process.env.PORTAL_ORIGIN||'').split(',').map(v=>v.trim()).filter(Boolean);
  const isLocal=origin&&/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
- const allowed=!origin||configured.includes(origin)||isLocal||(!configured.length&&origin);
- if(origin&&allowed){res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');res.setHeader('Access-Control-Allow-Credentials','true');}
- res.setHeader('Access-Control-Allow-Headers','Content-Type, Authorization');
+ const allowed=!origin||origin===SLATE_ORIGIN||isLocal;
+ if(origin&&allowed){
+   res.setHeader('Access-Control-Allow-Origin',origin);
+   res.setHeader('Access-Control-Allow-Credentials','true');
+   res.setHeader('Vary','Origin');
+ }
+ res.setHeader('Access-Control-Allow-Headers','Content-Type, Authorization, X-Requested-With');
  res.setHeader('Access-Control-Allow-Methods','GET,POST,OPTIONS');
- if(req.method==='OPTIONS')return res.sendStatus(204);
+ res.setHeader('Access-Control-Max-Age','86400');
+ if(req.method==='OPTIONS'){
+   if(origin&&!allowed)return res.status(403).end();
+   return res.status(204).end();
+ }
  if(origin&&!allowed)return res.status(403).json({message:'Origin is not allowed.'});
  next();
 });
+
 app.use(express.json());
 app.use(cookieParser());
 
