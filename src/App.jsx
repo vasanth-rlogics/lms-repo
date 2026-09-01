@@ -1,0 +1,12 @@
+import React,{useEffect,useState} from 'react';
+
+const API='/server/customer_auth_api/api/auth';
+
+export default function App(){
+ const [mode,setMode]=useState('login'); const [user,setUser]=useState(null); const [email,setEmail]=useState(''); const [password,setPassword]=useState(''); const [message,setMessage]=useState('');
+ useEffect(()=>{fetch(`${API}/me`,{credentials:'include'}).then(r=>r.ok?r.json():null).then(d=>d?.user&&setUser(d.user)).catch(()=>{});},[]);
+ async function submit(e){e.preventDefault();setMessage('');const url=mode==='login'?'login':'register';const body={email,password,...(mode==='register'?{privacyConsent:true}:{})};const r=await fetch(`${API}/${url}`,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));if(!r.ok){setMessage(d.message||'Request failed');return;}if(mode==='register'){setMessage('Account created. Please sign in.');setMode('login');}else setUser(d.user);}
+ async function logout(){await fetch(`${API}/logout`,{method:'POST',credentials:'include'});setUser(null);}
+ if(user)return <div className="shell"><aside><div className="brand">LMS</div><nav>Dashboard<br/>Applications<br/>Documents<br/>Payments<br/>Profile</nav></aside><main><header><h1>Customer Dashboard</h1><button onClick={logout}>Sign out</button></header><p>Welcome, {user.email}</p><div className="cards"><section><strong>0</strong><span>Applications</span></section><section><strong>0</strong><span>Active Loans</span></section><section><strong>—</strong><span>Next EMI</span></section></div></main></div>;
+ return <div className="auth"><div className="hero"><h1>Loan Management<br/>Customer Portal</h1><p>Apply, track and manage your loan journey securely.</p></div><form onSubmit={submit}><h2>{mode==='login'?'Welcome back':'Create account'}</h2><p>{mode==='login'?'Sign in to continue':'Register to start your application'}</p><label>Email<input type="email" value={email} onChange={e=>setEmail(e.target.value)} required/></label><label>Password<input type="password" value={password} onChange={e=>setPassword(e.target.value)} minLength="10" required/></label>{message&&<div className="msg">{message}</div>}<button className="primary">{mode==='login'?'Sign in':'Create account'}</button><button type="button" className="link" onClick={()=>{setMode(mode==='login'?'register':'login');setMessage('')}}>{mode==='login'?'New customer? Create an account':'Already registered? Sign in'}</button></form></div>;
+}
