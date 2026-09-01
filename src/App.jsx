@@ -1,5 +1,5 @@
 import React,{useEffect,useState} from 'react';
-const API='https://lms-turnkey-20117073532.development.catalystserverless.eu/server/customer_auth_api/api/auth';
+const API='/server/customer_auth_api/api/auth';
 const blank={customerName:'',email:'',mobileNumber:'',dateOfBirth:'',panNumber:'',address:'',employmentType:'',employerName:'',officialEmail:'',annualIncome:'',workExperience:'',password:'',privacyConsent:false};
 export default function App(){
  const [mode,setMode]=useState('login'),[user,setUser]=useState(null),[email,setEmail]=useState(''),[password,setPassword]=useState(''),[reg,setReg]=useState(blank),[message,setMessage]=useState(''),[loading,setLoading]=useState(false);
