@@ -1,0 +1,10 @@
+{
+  "deployment": {
+    "name": "customer_auth_api",
+    "stack": "node22",
+    "type": "advancedio"
+  },
+  "execution": {
+    "main": "index.js"
+  }
+}
