@@ -1,0 +1,46 @@
+name: Build Catalyst Client
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'index.html'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.js'
+      - 'client-package.template.json'
+
+jobs:
+  build-client:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Verify Catalyst client package
+        run: |
+          test -f client/index.html
+          test -f client/client-package.json
+
+      - name: Upload Catalyst client artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: catalyst-client
+          path: client/
+          if-no-files-found: error
