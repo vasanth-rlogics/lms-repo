@@ -1,232 +1,31 @@
-const express = require('express');
-const cookieParser = require('cookie-parser');
-const crypto = require('crypto');
-const bcrypt = require('bcryptjs');
-const catalyst = require('zcatalyst-sdk-node');
-
-const app = express();
-app.use(express.json());
-app.use(cookieParser());
-
-const USERS = 'Portal_Users';
-const SESSIONS = 'Portal_Sessions';
-const COOKIE = 'lms_session';
-const TTL = 12 * 60 * 60 * 1000;
-
-const CREATOR_OWNER = process.env.CREATOR_OWNER || 'demo2rlogicssolutions';
-const CREATOR_APP = process.env.CREATOR_APP || 'loan-management-backend-system';
-const CREATOR_CUSTOMER_FORM = process.env.CREATOR_CUSTOMER_FORM || 'customer_profile';
-const CREATOR_API_BASE = process.env.CREATOR_API_BASE || 'https://www.zohoapis.eu/creator/v2.1';
-const ZOHO_ACCOUNTS_URL = process.env.ZOHO_ACCOUNTS_URL || 'https://accounts.zoho.eu';
-
-const now = () => new Date();
-const fmt = d => d.toISOString().slice(0, 19).replace('T', ' ');
-const hash = t => crypto.createHash('sha256').update(t).digest('hex');
-const id = p => `${p}-${crypto.randomUUID()}`;
-
-function z(req) { return catalyst.initialize(req); }
-async function query(req, q) { return (await z(req).zcql().executeZCQLQuery(q)) || []; }
-function safe(v) { return String(v).replace(/'/g, "''"); }
-
-function normalizeIndianMobile(value) {
-  let mobile = String(value || '').trim().replace(/[\s-]/g, '');
-  if (mobile.startsWith('+91')) mobile = mobile.slice(3);
-  else if (mobile.startsWith('91') && mobile.length === 12) mobile = mobile.slice(2);
-  return mobile;
-}
-
-function creatorDateTime(dateValue) {
-  if (!dateValue) return null;
-  const d = new Date(`${dateValue}T00:00:00Z`);
-  if (Number.isNaN(d.getTime())) return null;
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  return `${String(d.getUTCDate()).padStart(2,'0')}-${months[d.getUTCMonth()]}-${d.getUTCFullYear()} 00:00:00`;
-}
-
-function requireCreatorOAuthConfig() {
-  const required = ['ZOHO_CLIENT_ID', 'ZOHO_CLIENT_SECRET', 'ZOHO_REFRESH_TOKEN'];
-  const missing = required.filter(k => !process.env[k]);
-  if (missing.length) {
-    const err = new Error(`Creator OAuth is not configured: ${missing.join(', ')}`);
-    err.statusCode = 503;
-    throw err;
-  }
-}
-
-async function getCreatorAccessToken() {
-  requireCreatorOAuthConfig();
-  const params = new URLSearchParams({
-    refresh_token: process.env.ZOHO_REFRESH_TOKEN,
-    client_id: process.env.ZOHO_CLIENT_ID,
-    client_secret: process.env.ZOHO_CLIENT_SECRET,
-    grant_type: 'refresh_token'
-  });
-  const response = await fetch(`${ZOHO_ACCOUNTS_URL}/oauth/v2/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: params.toString()
-  });
-  const raw = await response.text();
-  let data = {};
-  try { data = JSON.parse(raw); } catch { data = { raw }; }
-  if (!response.ok || !data.access_token) {
-    const err = new Error(data.error || 'Unable to obtain Zoho access token.');
-    err.statusCode = 502;
-    err.creatorResponse = { stage: 'oauth_token', httpStatus: response.status, body: data };
-    throw err;
-  }
-  return data.access_token;
-}
-
-async function createCreatorCustomer(customer) {
-  const accessToken = await getCreatorAccessToken();
-  const url = `${CREATOR_API_BASE}/data/${CREATOR_OWNER}/${CREATOR_APP}/form/${CREATOR_CUSTOMER_FORM}`;
-  const creatorAddress = { address_line_1: customer.address };
-  if (customer.addressLine2) creatorAddress.address_line_2 = customer.addressLine2;
-  if (customer.city) creatorAddress.district_city = customer.city;
-  if (customer.state) creatorAddress.state_province = customer.state;
-  if (customer.postalCode) creatorAddress.postal_Code = customer.postalCode;
-  if (customer.country) creatorAddress.country = customer.country;
-
-  const payload = {
-    data: {
-      customer_name: customer.customerName,
-      email: customer.email,
-      mobile_number: customer.mobileNumber,
-      date_of_birth: creatorDateTime(customer.dateOfBirth),
-      pan_number: customer.panNumber,
-      address: creatorAddress,
-      employment_type: customer.employmentType,
-      annual_income: Number(customer.annualIncome),
-      portal_user_id: customer.portalUserId,
-      portal_account_status1: 'Active',
-      privacy_consent_accepted1: true,
-      customer_status: 'Active'
-    },
-    result: { message: true }
-  };
-
-  if (customer.aadhaarNumber) payload.data.aadhaar_number = customer.aadhaarNumber;
-  if (customer.employerName) payload.data.employer_name = customer.employerName;
-  if (customer.officialEmail) payload.data.official_email = customer.officialEmail;
-  if (customer.workExperience !== '' && customer.workExperience != null) payload.data.work_experience = Number(customer.workExperience);
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { Authorization: `Zoho-oauthtoken ${accessToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-  const raw = await response.text();
-  let data = {};
-  try { data = JSON.parse(raw); } catch { data = { raw }; }
-  const result = Array.isArray(data.result) ? data.result[0] : null;
-  const creatorId = data?.data?.ID || result?.data?.ID;
-  const successCode = data?.code === 3000 || result?.code === 3000;
-  if (!response.ok || !successCode || !creatorId) {
-    const message = result?.message || data?.message || data?.error || 'Unable to create customer in Zoho Creator.';
-    const err = new Error(message);
-    err.statusCode = 502;
-    err.creatorResponse = { stage: 'creator_insert', httpStatus: response.status, endpoint: url, response: data };
-    throw err;
-  }
-  return String(creatorId);
-}
-
-app.get('/health', (req, res) => res.json({ ok: true, service: 'customer_auth_api', creatorIntegration: Boolean(process.env.ZOHO_CLIENT_ID && process.env.ZOHO_CLIENT_SECRET && process.env.ZOHO_REFRESH_TOKEN) }));
-
-app.post('/api/auth/register', async (req, res) => {
-  try {
-    const email = String(req.body.email || '').trim().toLowerCase();
-    const password = String(req.body.password || '');
-    const customerName = String(req.body.customerName || '').trim();
-    const mobileNumber = normalizeIndianMobile(req.body.mobileNumber);
-    const dateOfBirth = String(req.body.dateOfBirth || '').trim();
-    const panNumber = String(req.body.panNumber || '').trim().toUpperCase();
-    const address = String(req.body.address || '').trim();
-    const addressLine2 = String(req.body.addressLine2 || '').trim();
-    const city = String(req.body.city || '').trim();
-    const state = String(req.body.state || '').trim();
-    const postalCode = String(req.body.postalCode || '').trim();
-    const country = String(req.body.country || '').trim();
-    const employmentType = String(req.body.employmentType || '').trim();
-    const annualIncome = Number(req.body.annualIncome);
-    const aadhaarNumber = String(req.body.aadhaarNumber || '').trim();
-    const employerName = String(req.body.employerName || '').trim();
-    const officialEmail = String(req.body.officialEmail || '').trim().toLowerCase();
-    const workExperience = req.body.workExperience;
-
-    if (!customerName) return res.status(400).json({ message: 'Customer name is required.' });
-    if (!/^\S+@\S+\.\S+$/.test(email)) return res.status(400).json({ message: 'Enter a valid email address.' });
-    if (!/^[6-9][0-9]{9}$/.test(mobileNumber)) return res.status(400).json({ message: 'Enter a valid 10-digit Indian mobile number.' });
-    if (!/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(panNumber)) return res.status(400).json({ message: 'Enter a valid PAN number.' });
-    if (aadhaarNumber && !/^[0-9]{12}$/.test(aadhaarNumber)) return res.status(400).json({ message: 'Aadhaar number must contain exactly 12 digits.' });
-    if (!dateOfBirth || !creatorDateTime(dateOfBirth)) return res.status(400).json({ message: 'Enter a valid date of birth.' });
-    if (!address) return res.status(400).json({ message: 'Address is required.' });
-    if (!employmentType) return res.status(400).json({ message: 'Employment type is required.' });
-    if (!Number.isFinite(annualIncome) || annualIncome <= 0) return res.status(400).json({ message: 'Annual income must be greater than zero.' });
-    if (officialEmail && !/^\S+@\S+\.\S+$/.test(officialEmail)) return res.status(400).json({ message: 'Enter a valid official email address.' });
-    if (password.length < 10) return res.status(400).json({ message: 'Password must contain at least 10 characters.' });
-    if (!req.body.privacyConsent) return res.status(400).json({ message: 'Privacy consent is required.' });
-
-    const found = await query(req, `SELECT ROWID FROM ${USERS} WHERE EMAIL='${safe(email)}'`);
-    if (found.length) return res.status(409).json({ message: 'An account already exists for this email.' });
-    const t = now();
-    const portalId = id('PU');
-    const creatorCustomerId = await createCreatorCustomer({ portalUserId: portalId, customerName, email, mobileNumber, dateOfBirth, panNumber, address, addressLine2, city, state, postalCode, country, employmentType, annualIncome, aadhaarNumber, employerName, officialEmail, workExperience });
-    await z(req).datastore().table(USERS).insertRow({ PORTAL_USER_ID: portalId, EMAIL: email, PASSWORD_HASH: await bcrypt.hash(password, 12), ACCOUNT_STATUS: 'ACTIVE', EMAIL_VERIFIED: false, CREATOR_CUSTOMER_ID: creatorCustomerId, FAILED_LOGIN_ATTEMPTS: 0, CREATED_AT: fmt(t), UPDATED_AT: fmt(t) });
-    return res.status(201).json({ ok: true, portalUserId: portalId, creatorCustomerId });
-  } catch (e) {
-    console.error('Registration error:', e, e.creatorResponse || '');
-    const body = { message: e.message || 'Unable to create account.' };
-    if (e.creatorResponse) body.creatorError = e.creatorResponse;
-    res.status(e.statusCode || 500).json(body);
-  }
-});
-
-app.post('/api/auth/login', async (req, res) => {
-  try {
-    const email = String(req.body.email || '').trim().toLowerCase();
-    const password = String(req.body.password || '');
-    const rows = await query(req, `SELECT * FROM ${USERS} WHERE EMAIL='${safe(email)}'`);
-    if (!rows.length) return res.status(401).json({ message: 'Invalid email or password.' });
-    const u = rows[0][USERS] || rows[0];
-    if (u.ACCOUNT_STATUS !== 'ACTIVE' || !(await bcrypt.compare(password, u.PASSWORD_HASH))) return res.status(401).json({ message: 'Invalid email or password.' });
-    const token = crypto.randomBytes(48).toString('base64url');
-    const expires = new Date(Date.now() + TTL);
-    await z(req).datastore().table(SESSIONS).insertRow({ SESSION_ID: id('SES'), PORTAL_USER_ID: u.PORTAL_USER_ID, TOKEN_HASH: hash(token), EXPIRES_AT: fmt(expires), REVOKED: false, CREATED_AT: fmt(now()) });
-    res.cookie(COOKIE, token, { httpOnly: true, sameSite: 'lax', secure: true, maxAge: TTL, path: '/' });
-    res.json({ ok: true, user: { portalUserId: u.PORTAL_USER_ID, email: u.EMAIL, creatorCustomerId: u.CREATOR_CUSTOMER_ID || null } });
-  } catch (e) { console.error(e); res.status(500).json({ message: 'Unable to sign in.' }); }
-});
-
-app.get('/api/auth/me', async (req, res) => {
-  try {
-    const token = req.cookies[COOKIE];
-    if (!token) return res.status(401).json({ message: 'Authentication required.' });
-    const sessions = await query(req, `SELECT * FROM ${SESSIONS} WHERE TOKEN_HASH='${safe(hash(token))}'`);
-    if (!sessions.length) return res.status(401).json({ message: 'Session expired.' });
-    const s = sessions[0][SESSIONS] || sessions[0];
-    if (s.REVOKED || new Date(s.EXPIRES_AT) <= now()) return res.status(401).json({ message: 'Session expired.' });
-    const users = await query(req, `SELECT PORTAL_USER_ID,EMAIL,CREATOR_CUSTOMER_ID,ACCOUNT_STATUS FROM ${USERS} WHERE PORTAL_USER_ID='${safe(s.PORTAL_USER_ID)}'`);
-    if (!users.length) return res.status(401).json({ message: 'Authentication required.' });
-    const u = users[0][USERS] || users[0];
-    res.json({ user: { portalUserId: u.PORTAL_USER_ID, email: u.EMAIL, creatorCustomerId: u.CREATOR_CUSTOMER_ID || null } });
-  } catch (e) { console.error(e); res.status(500).json({ message: 'Unable to validate session.' }); }
-});
-
-app.post('/api/auth/logout', async (req, res) => {
-  try {
-    const token = req.cookies[COOKIE];
-    if (token) {
-      const sessions = await query(req, `SELECT ROWID FROM ${SESSIONS} WHERE TOKEN_HASH='${safe(hash(token))}'`);
-      for (const r of sessions) {
-        const s = r[SESSIONS] || r;
-        if (s.ROWID) await z(req).datastore().table(SESSIONS).updateRow({ ROWID: s.ROWID, REVOKED: true });
-      }
-    }
-    res.clearCookie(COOKIE, { path: '/' });
-    res.json({ ok: true });
-  } catch (e) { console.error(e); res.clearCookie(COOKIE, { path: '/' }); res.json({ ok: true }); }
-});
-
-module.exports = app;
+const express=require('express');
+const cookieParser=require('cookie-parser');
+const crypto=require('crypto');
+const bcrypt=require('bcryptjs');
+const catalyst=require('zcatalyst-sdk-node');
+const app=express();app.use(express.json());app.use(cookieParser());
+const USERS='Portal_Users',SESSIONS='Portal_Sessions',COOKIE='lms_session',TTL=12*60*60*1000;
+const CREATOR_OWNER=process.env.CREATOR_OWNER||'demo2rlogicssolutions';
+const CREATOR_APP=process.env.CREATOR_APP||'loan-management-backend-system';
+const CREATOR_CUSTOMER_FORM=process.env.CREATOR_CUSTOMER_FORM||'customer_profile';
+const CREATOR_API_BASE=process.env.CREATOR_API_BASE||'https://www.zohoapis.eu/creator/v2.1';
+const ZOHO_ACCOUNTS_URL=process.env.ZOHO_ACCOUNTS_URL||'https://accounts.zoho.eu';
+const now=()=>new Date();
+const fmt=d=>d.toISOString().slice(0,19).replace('T',' ');
+const hash=t=>crypto.createHash('sha256').update(t).digest('hex');
+const id=p=>`${p}-${crypto.randomUUID()}`;
+function z(req){return catalyst.initialize(req)}
+async function query(req,q){return(await z(req).zcql().executeZCQLQuery(q))||[]}
+function safe(v){return String(v).replace(/'/g,"''")}
+function normalizeIndianMobile(value){let mobile=String(value||'').trim().replace(/[\s-]/g,'');if(mobile.startsWith('+91'))mobile=mobile.slice(3);else if(mobile.startsWith('91')&&mobile.length===12)mobile=mobile.slice(2);return mobile}
+function creatorDateTime(dateValue){if(!dateValue)return null;const d=new Date(`${dateValue}T00:00:00Z`);if(Number.isNaN(d.getTime()))return null;const m=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return`${String(d.getUTCDate()).padStart(2,'0')}-${m[d.getUTCMonth()]}-${d.getUTCFullYear()} 00:00:00`}
+function creatorName(fullName){const parts=String(fullName||'').trim().split(/\s+/).filter(Boolean);if(!parts.length)return{};if(parts.length===1)return{first_name:parts[0]};return{first_name:parts[0],last_name:parts.slice(1).join(' ')}}
+function requireCreatorOAuthConfig(){const required=['ZOHO_CLIENT_ID','ZOHO_CLIENT_SECRET','ZOHO_REFRESH_TOKEN'];const missing=required.filter(k=>!process.env[k]);if(missing.length){const err=new Error(`Creator OAuth is not configured: ${missing.join(', ')}`);err.statusCode=503;throw err}}
+async function getCreatorAccessToken(){requireCreatorOAuthConfig();const params=new URLSearchParams({refresh_token:process.env.ZOHO_REFRESH_TOKEN,client_id:process.env.ZOHO_CLIENT_ID,client_secret:process.env.ZOHO_CLIENT_SECRET,grant_type:'refresh_token'});const response=await fetch(`${ZOHO_ACCOUNTS_URL}/oauth/v2/token`,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:params.toString()});const raw=await response.text();let data={};try{data=JSON.parse(raw)}catch{data={raw}}if(!response.ok||!data.access_token){const err=new Error(data.error||'Unable to obtain Zoho access token.');err.statusCode=502;err.creatorResponse={stage:'oauth_token',httpStatus:response.status,body:data};throw err}return data.access_token}
+async function createCreatorCustomer(customer){const accessToken=await getCreatorAccessToken();const url=`${CREATOR_API_BASE}/data/${CREATOR_OWNER}/${CREATOR_APP}/form/${CREATOR_CUSTOMER_FORM}`;const creatorAddress={address_line_1:customer.address};if(customer.addressLine2)creatorAddress.address_line_2=customer.addressLine2;if(customer.city)creatorAddress.district_city=customer.city;if(customer.state)creatorAddress.state_province=customer.state;if(customer.postalCode)creatorAddress.postal_Code=customer.postalCode;if(customer.country)creatorAddress.country=customer.country;const payload={data:{customer_name:creatorName(customer.customerName),email:customer.email,mobile_number:customer.mobileNumber,date_of_birth:creatorDateTime(customer.dateOfBirth),pan_number:customer.panNumber,address:creatorAddress,employment_type:customer.employmentType,annual_income:Number(customer.annualIncome),portal_user_id:customer.portalUserId,portal_account_status1:'Active',privacy_consent_accepted1:true,customer_status:'Active'},result:{message:true}};if(customer.aadhaarNumber)payload.data.aadhaar_number=customer.aadhaarNumber;if(customer.employerName)payload.data.employer_name=customer.employerName;if(customer.officialEmail)payload.data.official_email=customer.officialEmail;if(customer.workExperience!==''&&customer.workExperience!=null)payload.data.work_experience=Number(customer.workExperience);const response=await fetch(url,{method:'POST',headers:{Authorization:`Zoho-oauthtoken ${accessToken}`,'Content-Type':'application/json'},body:JSON.stringify(payload)});const raw=await response.text();let data={};try{data=JSON.parse(raw)}catch{data={raw}}const result=Array.isArray(data.result)?data.result[0]:null;const creatorId=data?.data?.ID||result?.data?.ID;const successCode=data?.code===3000||result?.code===3000;if(!response.ok||!successCode||!creatorId){const message=result?.message||data?.message||data?.error||'Unable to create customer in Zoho Creator.';const err=new Error(message);err.statusCode=502;err.creatorResponse={stage:'creator_insert',httpStatus:response.status,endpoint:url,response:data};throw err}return String(creatorId)}
+app.get('/health',(req,res)=>res.json({ok:true,service:'customer_auth_api',creatorIntegration:Boolean(process.env.ZOHO_CLIENT_ID&&process.env.ZOHO_CLIENT_SECRET&&process.env.ZOHO_REFRESH_TOKEN)}));
+app.post('/api/auth/register',async(req,res)=>{try{const email=String(req.body.email||'').trim().toLowerCase(),password=String(req.body.password||''),customerName=String(req.body.customerName||'').trim(),mobileNumber=normalizeIndianMobile(req.body.mobileNumber),dateOfBirth=String(req.body.dateOfBirth||'').trim(),panNumber=String(req.body.panNumber||'').trim().toUpperCase(),address=String(req.body.address||'').trim(),addressLine2=String(req.body.addressLine2||'').trim(),city=String(req.body.city||'').trim(),state=String(req.body.state||'').trim(),postalCode=String(req.body.postalCode||'').trim(),country=String(req.body.country||'').trim(),employmentType=String(req.body.employmentType||'').trim(),annualIncome=Number(req.body.annualIncome),aadhaarNumber=String(req.body.aadhaarNumber||'').trim(),employerName=String(req.body.employerName||'').trim(),officialEmail=String(req.body.officialEmail||'').trim().toLowerCase(),workExperience=req.body.workExperience;if(!customerName)return res.status(400).json({message:'Customer name is required.'});if(!/^\S+@\S+\.\S+$/.test(email))return res.status(400).json({message:'Enter a valid email address.'});if(!/^[6-9][0-9]{9}$/.test(mobileNumber))return res.status(400).json({message:'Enter a valid 10-digit Indian mobile number.'});if(!/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(panNumber))return res.status(400).json({message:'Enter a valid PAN number.'});if(aadhaarNumber&&!/^[0-9]{12}$/.test(aadhaarNumber))return res.status(400).json({message:'Aadhaar number must contain exactly 12 digits.'});if(!dateOfBirth||!creatorDateTime(dateOfBirth))return res.status(400).json({message:'Enter a valid date of birth.'});if(!address)return res.status(400).json({message:'Address is required.'});if(!employmentType)return res.status(400).json({message:'Employment type is required.'});if(!Number.isFinite(annualIncome)||annualIncome<=0)return res.status(400).json({message:'Annual income must be greater than zero.'});if(officialEmail&&!/^\S+@\S+\.\S+$/.test(officialEmail))return res.status(400).json({message:'Enter a valid official email address.'});if(password.length<10)return res.status(400).json({message:'Password must contain at least 10 characters.'});if(!req.body.privacyConsent)return res.status(400).json({message:'Privacy consent is required.'});const found=await query(req,`SELECT ROWID FROM ${USERS} WHERE EMAIL='${safe(email)}'`);if(found.length)return res.status(409).json({message:'An account already exists for this email.'});const t=now(),portalId=id('PU');const creatorCustomerId=await createCreatorCustomer({portalUserId:portalId,customerName,email,mobileNumber,dateOfBirth,panNumber,address,addressLine2,city,state,postalCode,country,employmentType,annualIncome,aadhaarNumber,employerName,officialEmail,workExperience});await z(req).datastore().table(USERS).insertRow({PORTAL_USER_ID:portalId,EMAIL:email,PASSWORD_HASH:await bcrypt.hash(password,12),ACCOUNT_STATUS:'ACTIVE',EMAIL_VERIFIED:false,CREATOR_CUSTOMER_ID:creatorCustomerId,FAILED_LOGIN_ATTEMPTS:0,CREATED_AT:fmt(t),UPDATED_AT:fmt(t)});return res.status(201).json({ok:true,portalUserId:portalId,creatorCustomerId})}catch(e){console.error('Registration error:',e,e.creatorResponse||'');const body={message:e.message||'Unable to create account.'};if(e.creatorResponse)body.creatorError=e.creatorResponse;res.status(e.statusCode||500).json(body)}});
+app.post('/api/auth/login',async(req,res)=>{try{const email=String(req.body.email||'').trim().toLowerCase(),password=String(req.body.password||'');const rows=await query(req,`SELECT * FROM ${USERS} WHERE EMAIL='${safe(email)}'`);if(!rows.length)return res.status(401).json({message:'Invalid email or password.'});const u=rows[0][USERS]||rows[0];if(u.ACCOUNT_STATUS!=='ACTIVE'||!(await bcrypt.compare(password,u.PASSWORD_HASH)))return res.status(401).json({message:'Invalid email or password.'});const token=crypto.randomBytes(48).toString('base64url'),expires=new Date(Date.now()+TTL);await z(req).datastore().table(SESSIONS).insertRow({SESSION_ID:id('SES'),PORTAL_USER_ID:u.PORTAL_USER_ID,TOKEN_HASH:hash(token),EXPIRES_AT:fmt(expires),REVOKED:false,CREATED_AT:fmt(now())});res.cookie(COOKIE,token,{httpOnly:true,sameSite:'lax',secure:true,maxAge:TTL,path:'/'});res.json({ok:true,user:{portalUserId:u.PORTAL_USER_ID,email:u.EMAIL,creatorCustomerId:u.CREATOR_CUSTOMER_ID||null}})}catch(e){console.error(e);res.status(500).json({message:'Unable to sign in.'})}});
+app.get('/api/auth/me',async(req,res)=>{try{const token=req.cookies[COOKIE];if(!token)return res.status(401).json({message:'Authentication required.'});const sessions=await query(req,`SELECT * FROM ${SESSIONS} WHERE TOKEN_HASH='${safe(hash(token))}'`);if(!sessions.length)return res.status(401).json({message:'Session expired.'});const s=sessions[0][SESSIONS]||sessions[0];if(s.REVOKED||new Date(s.EXPIRES_AT)<=now())return res.status(401).json({message:'Session expired.'});const users=await query(req,`SELECT PORTAL_USER_ID,EMAIL,CREATOR_CUSTOMER_ID,ACCOUNT_STATUS FROM ${USERS} WHERE PORTAL_USER_ID='${safe(s.PORTAL_USER_ID)}'`);if(!users.length)return res.status(401).json({message:'Authentication required.'});const u=users[0][USERS]||users[0];res.json({user:{portalUserId:u.PORTAL_USER_ID,email:u.EMAIL,creatorCustomerId:u.CREATOR_CUSTOMER_ID||null}})}catch(e){console.error(e);res.status(500).json({message:'Unable to validate session.'})}});
+app.post('/api/auth/logout',async(req,res)=>{try{const token=req.cookies[COOKIE];if(token){const sessions=await query(req,`SELECT ROWID FROM ${SESSIONS} WHERE TOKEN_HASH='${safe(hash(token))}'`);for(const r of sessions){const s=r[SESSIONS]||r;if(s.ROWID)await z(req).datastore().table(SESSIONS).updateRow({ROWID:s.ROWID,REVOKED:true})}}res.clearCookie(COOKIE,{path:'/'});res.json({ok:true})}catch(e){console.error(e);res.clearCookie(COOKIE,{path:'/'});res.json({ok:true})}});
+module.exports=app;
