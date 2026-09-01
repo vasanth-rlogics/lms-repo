@@ -1,0 +1,8 @@
+{
+  "functions": {
+    "targets": [
+      "customer_auth_api"
+    ],
+    "source": "functions"
+  }
+}
