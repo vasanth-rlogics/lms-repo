@@ -6,6 +6,7 @@ on:
     branches:
       - main
     paths:
+      - '.github/workflows/build-client.yml'
       - 'src/**'
       - 'index.html'
       - 'package.json'
