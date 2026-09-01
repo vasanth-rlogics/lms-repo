@@ -76,10 +76,13 @@ async function getCreatorAccessToken() {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: params.toString()
   });
-  const data = await response.json().catch(() => ({}));
+  const raw = await response.text();
+  let data = {};
+  try { data = JSON.parse(raw); } catch { data = { raw }; }
   if (!response.ok || !data.access_token) {
     const err = new Error(data.error || 'Unable to obtain Zoho access token.');
     err.statusCode = 502;
+    err.creatorResponse = { stage: 'oauth_token', httpStatus: response.status, body: data };
     throw err;
   }
   return data.access_token;
@@ -104,9 +107,7 @@ async function createCreatorCustomer(customer) {
       privacy_consent_accepted1: true,
       customer_status: 'Active'
     },
-    result: {
-      message: true
-    }
+    result: { message: true }
   };
 
   if (customer.aadhaarNumber) payload.data.aadhaar_number = customer.aadhaarNumber;
@@ -125,16 +126,24 @@ async function createCreatorCustomer(customer) {
     body: JSON.stringify(payload)
   });
 
-  const data = await response.json().catch(() => ({}));
+  const raw = await response.text();
+  let data = {};
+  try { data = JSON.parse(raw); } catch { data = { raw }; }
+
   const result = Array.isArray(data.result) ? data.result[0] : null;
   const creatorId = data?.data?.ID || result?.data?.ID;
   const successCode = data?.code === 3000 || result?.code === 3000;
 
   if (!response.ok || !successCode || !creatorId) {
-    const message = result?.message || data?.message || 'Unable to create customer in Zoho Creator.';
+    const message = result?.message || data?.message || data?.error || 'Unable to create customer in Zoho Creator.';
     const err = new Error(message);
     err.statusCode = 502;
-    err.creatorResponse = data;
+    err.creatorResponse = {
+      stage: 'creator_insert',
+      httpStatus: response.status,
+      endpoint: url,
+      response: data
+    };
     throw err;
   }
 
@@ -210,14 +219,12 @@ app.post('/api/auth/register', async (req, res) => {
       UPDATED_AT: fmt(t)
     });
 
-    return res.status(201).json({
-      ok: true,
-      portalUserId: portalId,
-      creatorCustomerId
-    });
+    return res.status(201).json({ ok: true, portalUserId: portalId, creatorCustomerId });
   } catch (e) {
     console.error('Registration error:', e, e.creatorResponse || '');
-    res.status(e.statusCode || 500).json({ message: e.message || 'Unable to create account.' });
+    const body = { message: e.message || 'Unable to create account.' };
+    if (e.creatorResponse) body.creatorError = e.creatorResponse;
+    res.status(e.statusCode || 500).json(body);
   }
 });
 
