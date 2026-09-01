@@ -4,5 +4,8 @@
       "customer_auth_api"
     ],
     "source": "functions"
+  },
+  "client": {
+    "source": "client"
   }
 }
