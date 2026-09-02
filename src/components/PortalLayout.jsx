@@ -1,13 +1,12 @@
 import React from 'react';
-import {NavLink,useNavigate} from 'react-router-dom';
+import {NavLink} from 'react-router-dom';
 import {authApi} from '../services/auth';
 import './PortalLayout.css';
 
 const items=[['/dashboard','Dashboard'],['/applications','Applications'],['/documents','Documents'],['/payments','Payments'],['/profile','Profile']];
 
 export default function PortalLayout({user,title,subtitle,children}){
-  const navigate=useNavigate();
-  async function signOut(){try{await authApi.logout()}finally{navigate('/login',{replace:true})}}
+  async function signOut(){try{await authApi.logout()}finally{window.location.hash='#/login';window.location.reload()}}
   return <div className="portal-shell">
     <aside className="portal-sidebar">
       <div className="portal-brand"><span>L</span><div><strong>LMS</strong><small>Customer Portal</small></div></div>
