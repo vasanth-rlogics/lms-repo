@@ -1,5 +1,5 @@
 import React,{useEffect,useState} from 'react';
-import {BrowserRouter,Navigate,Route,Routes} from 'react-router-dom';
+import {HashRouter,Navigate,Route,Routes} from 'react-router-dom';
 import {authApi} from './services/auth';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -9,24 +9,19 @@ import Documents from './pages/Documents';
 import Payments from './pages/Payments';
 import Profile from './pages/Profile';
 
-function Protected({user,loading,children}){
-  if(loading)return <div className="app-loading">Loading your account...</div>;
-  return user?children:<Navigate to="/login" replace/>;
-}
+function Protected({user,loading,children}){if(loading)return <div className="app-loading">Loading your account...</div>;return user?children:<Navigate to="/login" replace/>}
 
 export default function App(){
-  const[user,setUser]=useState(null);const[loading,setLoading]=useState(true);
-  useEffect(()=>{authApi.me().then(d=>setUser(d.user||null)).catch(()=>setUser(null)).finally(()=>setLoading(false))},[]);
-  return <BrowserRouter>
-    <Routes>
-      <Route path="/login" element={user?<Navigate to="/dashboard" replace/>:<Login/>}/>
-      <Route path="/register" element={user?<Navigate to="/dashboard" replace/>:<Register/>}/>
-      <Route path="/dashboard" element={<Protected user={user} loading={loading}><Dashboard user={user}/></Protected>}/>
-      <Route path="/applications" element={<Protected user={user} loading={loading}><Applications user={user}/></Protected>}/>
-      <Route path="/documents" element={<Protected user={user} loading={loading}><Documents user={user}/></Protected>}/>
-      <Route path="/payments" element={<Protected user={user} loading={loading}><Payments user={user}/></Protected>}/>
-      <Route path="/profile" element={<Protected user={user} loading={loading}><Profile user={user}/></Protected>}/>
-      <Route path="*" element={<Navigate to={user?'/dashboard':'/login'} replace/>}/>
-    </Routes>
-  </BrowserRouter>;
+ const[user,setUser]=useState(null);const[loading,setLoading]=useState(true);
+ useEffect(()=>{authApi.me().then(d=>setUser(d.user||null)).catch(()=>setUser(null)).finally(()=>setLoading(false))},[]);
+ return <HashRouter><Routes>
+  <Route path="/login" element={user?<Navigate to="/dashboard" replace/>:<Login/>}/>
+  <Route path="/register" element={user?<Navigate to="/dashboard" replace/>:<Register/>}/>
+  <Route path="/dashboard" element={<Protected user={user} loading={loading}><Dashboard user={user}/></Protected>}/>
+  <Route path="/applications" element={<Protected user={user} loading={loading}><Applications user={user}/></Protected>}/>
+  <Route path="/documents" element={<Protected user={user} loading={loading}><Documents user={user}/></Protected>}/>
+  <Route path="/payments" element={<Protected user={user} loading={loading}><Payments user={user}/></Protected>}/>
+  <Route path="/profile" element={<Protected user={user} loading={loading}><Profile user={user}/></Protected>}/>
+  <Route path="*" element={<Navigate to={user?'/dashboard':'/login'} replace/>}/>
+ </Routes></HashRouter>;
 }
