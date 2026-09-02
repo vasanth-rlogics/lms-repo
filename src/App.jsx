@@ -1,4 +1,5 @@
 import React,{useEffect,useMemo,useState}from'react';
+
 const API='/server/customer_auth_api/api/auth';
 const blank={customerName:'',email:'',mobileNumber:'',dateOfBirth:'',address:'',city:'',state:'',postalCode:'',country:'India',employmentType:'',employerName:'',officialEmail:'',annualIncome:'',workExperience:'',password:'',privacyConsent:false};
 const nav=['Dashboard','Applications','Documents','Payments','Profile'];
@@ -6,11 +7,166 @@ const emailRe=/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const mobileRe=/^[6-9][0-9]{9}$/;
 const postalRe=/^[0-9A-Za-z][0-9A-Za-z\s-]{2,9}$/;
 const stepFields={1:['customerName','email','mobileNumber','dateOfBirth'],2:['employmentType','annualIncome','employerName','officialEmail','workExperience'],3:['address','city','state','postalCode','country','password','privacyConsent']};
+const allRegistrationFields=[...stepFields[1],...stepFields[2],...stepFields[3]];
+
 function Mark(){return <div className="logo-mark"><span>L</span></div>}
-function validateField(name,value){const v=typeof value==='string'?value.trim():value;switch(name){case'customerName':if(!v)return'Customer name is required.';if(v.length<2)return'Enter at least 2 characters.';if(!/^[A-Za-z][A-Za-z .'-]{1,79}$/.test(v))return'Enter a valid customer name.';return'';case'email':if(!v)return'Email address is required.';if(!emailRe.test(v))return'Enter a valid email address.';return'';case'mobileNumber':if(!v)return'Mobile number is required.';if(!mobileRe.test(String(v).replace(/[\s-]/g,'')))return'Enter a valid 10-digit Indian mobile number.';return'';case'dateOfBirth':{if(!v)return'Date of birth is required.';const d=new Date(`${v}T00:00:00`);if(Number.isNaN(d.getTime()))return'Enter a valid date of birth.';const t=new Date();if(d>t)return'Date of birth cannot be in the future.';let age=t.getFullYear()-d.getFullYear();const m=t.getMonth()-d.getMonth();if(m<0||(m===0&&t.getDate()<d.getDate()))age--;if(age<18)return'You must be at least 18 years old.';if(age>100)return'Enter a valid date of birth.';return'';}case'employmentType':return v?'':'Select an employment type.';case'annualIncome':if(v===''||v==null)return'Annual income is required.';if(!Number.isFinite(Number(v))||Number(v)<=0)return'Annual income must be greater than zero.';return'';case'employerName':if(!v)return'';if(v.length<2)return'Enter a valid employer name.';return'';case'officialEmail':if(!v)return'';if(!emailRe.test(v))return'Enter a valid official email address.';return'';case'workExperience':if(v===''||v==null)return'';if(!Number.isFinite(Number(v))||Number(v)<0||Number(v)>60)return'Enter valid work experience.';return'';case'address':if(!v)return'Address is required.';if(v.length<5)return'Enter a complete address.';return'';case'city':if(!v)return'City / District is required.';if(v.length<2)return'Enter a valid city or district.';return'';case'state':if(!v)return'';if(v.length<2)return'Enter a valid state or province.';return'';case'postalCode':if(!v)return'';if(!postalRe.test(v))return'Enter a valid postal code.';return'';case'country':return v?'':'Country is required.';case'password':if(!v)return'Password is required.';if(v.length<10)return'Use at least 10 characters.';if(!/[A-Z]/.test(v)||!/[a-z]/.test(v)||!/[0-9]/.test(v))return'Include uppercase, lowercase and a number.';return'';case'privacyConsent':return v?'':'You must accept the privacy consent.';default:return''}}
-function Field({label,name,children,wide,errors,validated,optional}){const error=errors[name];const valid=validated[name]&&!error;return <label className={`${wide?'wide ':''}field ${error?'invalid':valid?'valid':''}`}><span>{label}{optional&&<em>Optional</em>}</span><div className="field-control">{children}{(error||valid)&&<b className="field-status">{error?'!':'✓'}</b>}</div>{error&&<small className="field-message error">{error}</small>}{valid&&<small className="field-message success">Looks good</small>}</label>}
-function Stepper({step}){const items=[['Personal','Your details'],['Employment','Work information'],['Security','Address & access']];return <div className="stepper">{items.map((x,i)=>{const n=i+1;const state=n<step?'done':n===step?'active':'';return <React.Fragment key={x[0]}><div className={`step ${state}`}><span>{n<step?'✓':n}</span><div><strong>{x[0]}</strong><small>{x[1]}</small></div></div>{n<3&&<div className={`step-line ${n<step?'done':''}`}/>}</React.Fragment>})}</div>}
-export default function App(){const[mode,setMode]=useState('login'),[step,setStep]=useState(1),[user,setUser]=useState(null),[email,setEmail]=useState(''),[password,setPassword]=useState(''),[reg,setReg]=useState(blank),[message,setMessage]=useState(''),[loading,setLoading]=useState(false),[errors,setErrors]=useState({}),[validated,setValidated]=useState({}),[changedField,setChangedField]=useState(null);useEffect(()=>{fetch(`${API}/me`,{credentials:'include'}).then(r=>r.ok?r.json():null).then(d=>d?.user&&setUser(d.user)).catch(()=>{})},[]);const values=useMemo(()=>mode==='login'?{email,password}:reg,[mode,email,password,reg]);useEffect(()=>{if(!changedField)return;const timer=setTimeout(()=>{const err=validateField(changedField,values[changedField]);setErrors(x=>({...x,[changedField]:err}));setValidated(x=>({...x,[changedField]:true}));setChangedField(null)},3000);return()=>clearTimeout(timer)},[changedField,values]);const change=(name,value)=>{setValidated(x=>({...x,[name]:false}));setErrors(x=>{const n={...x};delete n[name];return n});setChangedField(name);if(mode==='login'){name==='email'?setEmail(value):setPassword(value)}else setReg(x=>({...x,[name]:value}))};const validateNames=names=>{const next={...errors},done={...validated};let ok=true;names.forEach(n=>{const e=validateField(n,values[n]);done[n]=true;if(e){next[n]=e;ok=false}else delete next[n]});setErrors(next);setValidated(done);setChangedField(null);return ok};const nextStep=()=>{if(validateNames(stepFields[step])){setMessage('');setStep(s=>Math.min(3,s+1));window.scrollTo({top:0,behavior:'smooth'})}};const switchMode=next=>{setMode(next);setStep(1);setErrors({});setValidated({});setMessage('');setChangedField(null)};async function submit(e){e.preventDefault();setMessage('');const names=mode==='login'?['email','password']:stepFields[3];if(!validateNames(names))return;if(mode==='register'&&step<3){nextStep();return}setLoading(true);try{const body=mode==='login'?{email:email.trim().toLowerCase(),password}:{...reg,email:reg.email.trim().toLowerCase(),mobileNumber:reg.mobileNumber.replace(/[\s-]/g,''),officialEmail:reg.officialEmail.trim().toLowerCase()};const r=await fetch(`${API}/${mode==='login'?'login':'register'}`,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));if(!r.ok){if(d.field){setErrors(x=>({...x,[d.field]:d.message||'Please check this value.'}));setValidated(x=>({...x,[d.field]:true}));if(mode==='register'){const target=Object.entries(stepFields).find(([,a])=>a.includes(d.field));if(target)setStep(Number(target[0]))}}else setMessage(d.message||'We could not complete your request.');return}if(mode==='register'){setEmail(reg.email.trim().toLowerCase());setPassword('');setReg(blank);setStep(1);setErrors({});setValidated({});setMessage('Account created successfully. Sign in to continue.');setMode('login')}else setUser(d.user)}catch{setMessage('Unable to reach the service. Please try again.')}finally{setLoading(false)}}async function logout(){await fetch(`${API}/logout`,{method:'POST',credentials:'include'});setUser(null);setPassword('')}
+
+function validateField(name,value){
+ const v=typeof value==='string'?value.trim():value;
+ switch(name){
+  case'customerName':{
+   if(!v)return'Customer name is required.';
+   if(!/^[A-Za-z][A-Za-z .'-]{1,79}$/.test(v))return'Enter a valid customer name.';
+   if(v.split(/\s+/).filter(Boolean).length<2)return'Enter your first and last name.';
+   return'';
+  }
+  case'email':if(!v)return'Email address is required.';if(!emailRe.test(v))return'Enter a valid email address.';return'';
+  case'mobileNumber':if(!v)return'Mobile number is required.';if(!mobileRe.test(String(v).replace(/[\s-]/g,'')))return'Enter a valid 10-digit Indian mobile number.';return'';
+  case'dateOfBirth':{
+   if(!v)return'Date of birth is required.';
+   const d=new Date(`${v}T00:00:00`);
+   if(Number.isNaN(d.getTime()))return'Enter a valid date of birth.';
+   const t=new Date();if(d>t)return'Date of birth cannot be in the future.';
+   let age=t.getFullYear()-d.getFullYear();const m=t.getMonth()-d.getMonth();if(m<0||(m===0&&t.getDate()<d.getDate()))age--;
+   if(age<18)return'You must be at least 18 years old.';if(age>100)return'Enter a valid date of birth.';return'';
+  }
+  case'employmentType':return v?'':'Select an employment type.';
+  case'annualIncome':if(v===''||v==null)return'Annual income is required.';if(!Number.isFinite(Number(v))||Number(v)<=0)return'Annual income must be greater than zero.';return'';
+  case'employerName':if(!v)return'';if(v.length<2)return'Enter a valid employer name.';return'';
+  case'officialEmail':if(!v)return'';if(!emailRe.test(v))return'Enter a valid official email address.';return'';
+  case'workExperience':if(v===''||v==null)return'';if(!Number.isFinite(Number(v))||Number(v)<0||Number(v)>60)return'Enter valid work experience.';return'';
+  case'address':if(!v)return'Address is required.';if(v.length<5)return'Enter a complete address.';return'';
+  case'city':if(!v)return'City / District is required.';if(v.length<2)return'Enter a valid city or district.';return'';
+  case'state':if(!v)return'';if(v.length<2)return'Enter a valid state or province.';return'';
+  case'postalCode':if(!v)return'';if(!postalRe.test(v))return'Enter a valid postal code.';return'';
+  case'country':return v?'':'Country is required.';
+  case'password':if(!v)return'Password is required.';if(v.length<10)return'Use at least 10 characters.';if(!/[A-Z]/.test(v)||!/[a-z]/.test(v)||!/[0-9]/.test(v))return'Include uppercase, lowercase and a number.';return'';
+  case'privacyConsent':return v?'':'You must accept the privacy consent.';
+  default:return'';
+ }
+}
+
+function Field({label,name,children,wide,errors,validated,optional}){
+ const error=errors[name];
+ const valid=validated[name]&&!error;
+ return <label className={`${wide?'wide ':''}field ${error?'invalid':valid?'valid':''}`}>
+  <span>{label}{optional&&<em>Optional</em>}</span>
+  <div className="field-control">{children}{(error||valid)&&<b className="field-status">{error?'!':'✓'}</b>}</div>
+  {error?<small className="field-message error">{error}</small>:valid?<small className="field-message success">Looks good</small>:null}
+ </label>
+}
+
+function Stepper({step}){
+ const items=[['Personal','Your details'],['Employment','Work information'],['Security','Address & access']];
+ return <div className="stepper">{items.map((x,i)=>{const n=i+1;const state=n<step?'done':n===step?'active':'';return <React.Fragment key={x[0]}><div className={`step ${state}`}><span>{n<step?'✓':n}</span><div><strong>{x[0]}</strong><small>{x[1]}</small></div></div>{n<3&&<div className={`step-line ${n<step?'done':''}`}/>}</React.Fragment>})}</div>
+}
+
+export default function App(){
+ const[mode,setMode]=useState('login');
+ const[step,setStep]=useState(1);
+ const[user,setUser]=useState(null);
+ const[email,setEmail]=useState('');
+ const[password,setPassword]=useState('');
+ const[reg,setReg]=useState(blank);
+ const[message,setMessage]=useState('');
+ const[loading,setLoading]=useState(false);
+ const[errors,setErrors]=useState({});
+ const[validated,setValidated]=useState({});
+ const[changedField,setChangedField]=useState(null);
+
+ useEffect(()=>{fetch(`${API}/me`,{credentials:'include'}).then(r=>r.ok?r.json():null).then(d=>d?.user&&setUser(d.user)).catch(()=>{})},[]);
+ const values=useMemo(()=>mode==='login'?{email,password}:reg,[mode,email,password,reg]);
+
+ useEffect(()=>{
+  if(!changedField)return;
+  const timer=setTimeout(()=>{
+   const err=validateField(changedField,values[changedField]);
+   setErrors(x=>{const next={...x};if(err)next[changedField]=err;else delete next[changedField];return next});
+   setValidated(x=>({...x,[changedField]:true}));
+   setChangedField(null);
+  },3000);
+  return()=>clearTimeout(timer);
+ },[changedField,values]);
+
+ const change=(name,value)=>{
+  setValidated(x=>({...x,[name]:false}));
+  setErrors(x=>{const n={...x};delete n[name];return n});
+  setChangedField(name);
+  if(mode==='login'){name==='email'?setEmail(value):setPassword(value)}else setReg(x=>({...x,[name]:value}));
+ };
+
+ const validateNames=names=>{
+  const next={...errors};const done={...validated};let ok=true;
+  names.forEach(n=>{const e=validateField(n,values[n]);done[n]=true;if(e){next[n]=e;ok=false}else delete next[n]});
+  setErrors(next);setValidated(done);setChangedField(null);return ok;
+ };
+
+ const clearDestinationState=targetStep=>{
+  const fields=stepFields[targetStep]||[];
+  setErrors(prev=>{const next={...prev};fields.forEach(f=>delete next[f]);return next});
+  setValidated(prev=>{const next={...prev};fields.forEach(f=>delete next[f]);return next});
+  setChangedField(null);
+ };
+
+ const goNext=()=>{
+  if(!validateNames(stepFields[step]))return;
+  const next=Math.min(3,step+1);
+  clearDestinationState(next);
+  setMessage('');
+  setStep(next);
+ };
+
+ const goBack=()=>{
+  const next=Math.max(1,step-1);
+  setMessage('');setChangedField(null);setStep(next);
+ };
+
+ const switchMode=next=>{setMode(next);setStep(1);setErrors({});setValidated({});setMessage('');setChangedField(null)};
+
+ async function submit(e){
+  e.preventDefault();setMessage('');
+  if(mode==='register'&&step<3){goNext();return;}
+  const names=mode==='login'?['email','password']:allRegistrationFields;
+  if(!validateNames(names)){
+   if(mode==='register'){
+    const firstBad=names.find(n=>validateField(n,values[n]));
+    const target=Object.entries(stepFields).find(([,fields])=>fields.includes(firstBad));
+    if(target)setStep(Number(target[0]));
+   }
+   return;
+  }
+  setLoading(true);
+  try{
+   const body=mode==='login'?{email:email.trim().toLowerCase(),password}:{...reg,customerName:reg.customerName.trim().replace(/\s+/g,' '),email:reg.email.trim().toLowerCase(),mobileNumber:reg.mobileNumber.replace(/[\s-]/g,''),officialEmail:reg.officialEmail.trim().toLowerCase()};
+   const r=await fetch(`${API}/${mode==='login'?'login':'register'}`,{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify(body)});
+   const d=await r.json().catch(()=>({}));
+   if(!r.ok){
+    if(d.field){
+     setErrors(x=>({...x,[d.field]:d.message||'Please check this value.'}));setValidated(x=>({...x,[d.field]:true}));
+     if(mode==='register'){const target=Object.entries(stepFields).find(([,a])=>a.includes(d.field));if(target)setStep(Number(target[0]))}
+    }else setMessage(d.message||'We could not complete your request.');
+    return;
+   }
+   if(mode==='register'){
+    setEmail(reg.email.trim().toLowerCase());setPassword('');setReg(blank);setStep(1);setErrors({});setValidated({});setMessage('Account created successfully. Sign in to continue.');setMode('login');
+   }else setUser(d.user);
+  }catch{setMessage('Unable to reach the service. Please try again.')}finally{setLoading(false)}
+ }
+
+ async function logout(){await fetch(`${API}/logout`,{method:'POST',credentials:'include'});setUser(null);setPassword('')}
  const cls=n=>errors[n]?'invalid':validated[n]&&!errors[n]?'valid':'';
+
  if(user)return <div className="app-shell"><aside className="sidebar"><div className="brand-row"><Mark/><div><strong>LMS</strong><small>Customer Portal</small></div></div><nav>{nav.map((x,i)=><button key={x} className={i===0?'nav-item active':'nav-item'}><span className="nav-dot">{x[0]}</span>{x}</button>)}</nav><div className="sidebar-footer"><span className="status-dot"/>Secure session</div></aside><main className="dashboard"><header className="topbar"><div><span className="eyebrow">CUSTOMER PORTAL</span><h1>Dashboard</h1></div><div className="account-area"><div className="avatar">{user.email?.[0]?.toUpperCase()||'U'}</div><div className="account-copy"><strong>{user.email}</strong><span>Signed in</span></div><button className="secondary" onClick={logout}>Sign out</button></div></header><section className="welcome-card"><div><span className="eyebrow">WELCOME BACK</span><h2>Manage your loan journey in one place.</h2><p>Track applications, upload documents, review payments and keep your profile up to date.</p></div><button className="primary compact">Start new application</button></section><section className="stat-grid"><article className="stat-card"><div className="stat-icon">A</div><div><span>Applications</span><strong>0</strong><small>No applications yet</small></div></article><article className="stat-card"><div className="stat-icon">L</div><div><span>Active loans</span><strong>0</strong><small>No active loans</small></div></article><article className="stat-card"><div className="stat-icon">₹</div><div><span>Next EMI</span><strong>—</strong><small>No payment scheduled</small></div></article></section></main></div>;
- return <div className={`auth-page ${mode==='register'?'is-register':''}`}><section className="auth-visual"><div className="auth-brand"><Mark/><span>LMS Customer Portal</span></div><div className="auth-visual-copy"><span className="eyebrow light">LOAN MANAGEMENT, SIMPLIFIED</span><h1>One secure place for your entire loan journey.</h1><p>Apply, submit documents, track decisions and manage repayments without the paperwork.</p><div className="trust-row"><span>Secure access</span><span>Clear progress</span><span>24/7 availability</span></div></div><div className="visual-card"><span>Simple. Secure. Transparent.</span><small>Built to keep every step of your application clear.</small></div></section><section className="auth-content"><div className="auth-card"><div className="auth-card-head"><span className="eyebrow">{mode==='login'?'WELCOME BACK':`STEP ${step} OF 3`}</span><h2>{mode==='login'?'Sign in to your account':'Create your account'}</h2><p>{mode==='login'?'Access your applications, documents and payments.':'Complete each step to create your customer profile.'}</p></div>{mode==='register'&&<Stepper step={step}/>}<form onSubmit={submit} noValidate autoComplete="on">{mode==='login'?<div className="login-fields"><Field label="Email" name="email" errors={errors} validated={validated}><input className={cls('email')} autoComplete="email" value={email} onChange={e=>change('email',e.target.value)} placeholder="name@example.com"/></Field><Field label="Password" name="password" errors={errors} validated={validated}><input className={cls('password')} type="password" autoComplete="current-password" value={password} onChange={e=>change('password',e.target.value)} placeholder="Enter your password"/></Field></div>:<div className="step-panel">{step===1&&<div className="form-grid"><Field label="Customer name" name="customerName" wide errors={errors} validated={validated}><input className={cls('customerName')} autoComplete="name" value={reg.customerName} onChange={e=>change('customerName',e.target.value)} placeholder="Full name"/></Field><Field label="Email" name="email" errors={errors} validated={validated}><input className={cls('email')} autoComplete="email" value={reg.email} onChange={e=>change('email',e.target.value)} placeholder="name@example.com"/></Field><Field label="Mobile number" name="mobileNumber" errors={errors} validated={validated}><input className={cls('mobileNumber')} inputMode="numeric" autoComplete="tel" value={reg.mobileNumber} onChange={e=>change('mobileNumber',e.target.value.replace(/[^0-9\s-]/g,'').slice(0,12))} placeholder="10-digit mobile number"/></Field><Field label="Date of birth" name="dateOfBirth" errors={errors} validated={validated}><input className={cls('dateOfBirth')} type="date" autoComplete="bday" value={reg.dateOfBirth} onChange={e=>change('dateOfBirth',e.target.value)}/></Field></div>}{step===2&&<div className="form-grid"><Field label="Employment type" name="employmentType" errors={errors} validated={validated}><select className={cls('employmentType')} value={reg.employmentType} onChange={e=>change('employmentType',e.target.value)}><option value="">Select employment type</option><option>Salaried</option><option>Self Employed</option><option>Business</option><option>Other</option></select></Field><Field label="Annual income" name="annualIncome" errors={errors} validated={validated}><input className={cls('annualIncome')} inputMode="decimal" value={reg.annualIncome} onChange={e=>change('annualIncome',e.target.value)} placeholder="Annual income"/></Field><Field label="Employer name" name="employerName" optional errors={errors} validated={validated}><input className={cls('employerName')} value={reg.employerName} onChange={e=>change('employerName',e.target.value)} placeholder="Employer or company"/></Field><Field label="Official email" name="officialEmail" optional errors={errors} validated={validated}><input className={cls('officialEmail')} value={reg.officialEmail} onChange={e=>change('officialEmail',e.target.value)} placeholder="work@example.com"/></Field><Field label="Work experience (years)" name="workExperience" optional errors={errors} validated={validated}><input className={cls('workExperience')} inputMode="decimal" value={reg.workExperience} onChange={e=>change('workExperience',e.target.value)} placeholder="e.g. 3.5"/></Field></div>}{step===3&&<div className="form-grid"><Field label="Address" name="address" wide errors={errors} validated={validated}><input className={cls('address')} autoComplete="street-address" value={reg.address} onChange={e=>change('address',e.target.value)} placeholder="House number, street, area"/></Field><Field label="City / District" name="city" errors={errors} validated={validated}><input className={cls('city')} value={reg.city} onChange={e=>change('city',e.target.value)} placeholder="City or district"/></Field><Field label="State / Province" name="state" optional errors={errors} validated={validated}><input className={cls('state')} value={reg.state} onChange={e=>change('state',e.target.value)} placeholder="State"/></Field><Field label="Postal code" name="postalCode" optional errors={errors} validated={validated}><input className={cls('postalCode')} value={reg.postalCode} onChange={e=>change('postalCode',e.target.value)} placeholder="Postal code"/></Field><Field label="Country" name="country" errors={errors} validated={validated}><input className={cls('country')} value={reg.country} onChange={e=>change('country',e.target.value)}/></Field><Field label="Create password" name="password" errors={errors} validated={validated}><input className={cls('password')} type="password" autoComplete="new-password" value={reg.password} onChange={e=>change('password',e.target.value)} placeholder="Minimum 10 characters"/></Field><label className={`consent wide ${errors.privacyConsent?'invalid':''}`}><input type="checkbox" checked={reg.privacyConsent} onChange={e=>change('privacyConsent',e.target.checked)}/><span>I consent to my information being used for loan application and account management.</span>{errors.privacyConsent&&<small className="field-message error">{errors.privacyConsent}</small>}</label></div>}</div>}{message&&<div className="msg">{message}</div>}{mode==='register'?<div className="step-actions">{step>1?<button type="button" className="secondary" onClick={()=>setStep(s=>s-1)}>Back</button>:<span/>}{step<3?<button type="button" className="primary" onClick={nextStep}>Continue</button>:<button className="primary" disabled={loading}>{loading?'Creating account...':'Create account'}</button>}</div>:<button className="primary full" disabled={loading}>{loading?'Signing in...':'Sign in'}</button>}<div className="switch-copy">{mode==='login'?'New to LMS?':'Already have an account?'}<button type="button" className="text-button" onClick={()=>switchMode(mode==='login'?'register':'login')}>{mode==='login'?'Create account':'Sign in'}</button></div></form></div></section></div>}
+
+ return <div className={`auth-page ${mode==='register'?'is-register':''}`}><section className="auth-visual"><div className="auth-brand"><Mark/><span>LMS Customer Portal</span></div><div className="auth-visual-copy"><span className="eyebrow light">LOAN MANAGEMENT, SIMPLIFIED</span><h1>One secure place for your entire loan journey.</h1><p>Apply, submit documents, track decisions and manage repayments without the paperwork.</p><div className="trust-row"><span>Secure access</span><span>Clear progress</span><span>24/7 availability</span></div></div><div className="visual-card"><span>Simple. Secure. Transparent.</span><small>Built to keep every step of your application clear.</small></div></section><section className="auth-content"><div className="auth-card"><div className="auth-card-head"><span className="eyebrow">{mode==='login'?'WELCOME BACK':`STEP ${step} OF 3`}</span><h2>{mode==='login'?'Sign in to your account':'Create your account'}</h2><p>{mode==='login'?'Access your applications, documents and payments.':'Complete each step to create your customer profile.'}</p></div>{mode==='register'&&<Stepper step={step}/>}<form onSubmit={submit} noValidate autoComplete="on">
+ {mode==='login'?<div className="login-fields"><Field label="Email" name="email" errors={errors} validated={validated}><input className={cls('email')} autoComplete="email" value={email} onChange={e=>change('email',e.target.value)} placeholder="name@example.com"/></Field><Field label="Password" name="password" errors={errors} validated={validated}><input className={cls('password')} type="password" autoComplete="current-password" value={password} onChange={e=>change('password',e.target.value)} placeholder="Enter your password"/></Field></div>:
+ <div className="step-panel">
+  {step===1&&<div className="form-grid"><Field label="Customer name" name="customerName" wide errors={errors} validated={validated}><input className={cls('customerName')} autoComplete="name" value={reg.customerName} onChange={e=>change('customerName',e.target.value)} placeholder="First and last name"/></Field><Field label="Email" name="email" errors={errors} validated={validated}><input className={cls('email')} autoComplete="email" value={reg.email} onChange={e=>change('email',e.target.value)} placeholder="name@example.com"/></Field><Field label="Mobile number" name="mobileNumber" errors={errors} validated={validated}><input className={cls('mobileNumber')} inputMode="numeric" autoComplete="tel" value={reg.mobileNumber} onChange={e=>change('mobileNumber',e.target.value.replace(/[^0-9\s-]/g,'').slice(0,12))} placeholder="10-digit mobile number"/></Field><Field label="Date of birth" name="dateOfBirth" errors={errors} validated={validated}><input className={cls('dateOfBirth')} type="date" autoComplete="bday" value={reg.dateOfBirth} onChange={e=>change('dateOfBirth',e.target.value)}/></Field></div>}
+  {step===2&&<div className="form-grid"><Field label="Employment type" name="employmentType" errors={errors} validated={validated}><select className={cls('employmentType')} value={reg.employmentType} onChange={e=>change('employmentType',e.target.value)}><option value="">Select employment type</option><option>Salaried</option><option>Self Employed</option><option>Business</option><option>Other</option></select></Field><Field label="Annual income" name="annualIncome" errors={errors} validated={validated}><input className={cls('annualIncome')} inputMode="decimal" value={reg.annualIncome} onChange={e=>change('annualIncome',e.target.value)} placeholder="Annual income"/></Field><Field label="Employer name" name="employerName" optional errors={errors} validated={validated}><input className={cls('employerName')} value={reg.employerName} onChange={e=>change('employerName',e.target.value)} placeholder="Employer or company"/></Field><Field label="Official email" name="officialEmail" optional errors={errors} validated={validated}><input className={cls('officialEmail')} value={reg.officialEmail} onChange={e=>change('officialEmail',e.target.value)} placeholder="work@example.com"/></Field><Field label="Work experience (years)" name="workExperience" optional errors={errors} validated={validated}><input className={cls('workExperience')} inputMode="decimal" value={reg.workExperience} onChange={e=>change('workExperience',e.target.value)} placeholder="e.g. 3.5"/></Field></div>}
+  {step===3&&<div className="form-grid"><Field label="Address" name="address" wide errors={errors} validated={validated}><input className={cls('address')} autoComplete="street-address" value={reg.address} onChange={e=>change('address',e.target.value)} placeholder="House number, street, area"/></Field><Field label="City / District" name="city" errors={errors} validated={validated}><input className={cls('city')} value={reg.city} onChange={e=>change('city',e.target.value)} placeholder="City or district"/></Field><Field label="State / Province" name="state" optional errors={errors} validated={validated}><input className={cls('state')} value={reg.state} onChange={e=>change('state',e.target.value)} placeholder="State"/></Field><Field label="Postal code" name="postalCode" optional errors={errors} validated={validated}><input className={cls('postalCode')} value={reg.postalCode} onChange={e=>change('postalCode',e.target.value)} placeholder="Postal code"/></Field><Field label="Country" name="country" errors={errors} validated={validated}><input className={cls('country')} value={reg.country} onChange={e=>change('country',e.target.value)}/></Field><Field label="Create password" name="password" errors={errors} validated={validated}><input className={cls('password')} type="password" autoComplete="new-password" value={reg.password} onChange={e=>change('password',e.target.value)} placeholder="Minimum 10 characters"/></Field><label className={`consent wide ${errors.privacyConsent?'invalid':''}`}><input type="checkbox" checked={reg.privacyConsent} onChange={e=>change('privacyConsent',e.target.checked)}/><span>I consent to my information being used for loan application and account management.</span>{errors.privacyConsent&&<small className="field-message error">{errors.privacyConsent}</small>}</label></div>}
+ </div>}
+ {message&&<div className="msg">{message}</div>}
+ {mode==='register'?<div className="step-actions">{step>1?<button type="button" className="secondary" onClick={goBack}>Back</button>:<span/>}{step<3?<button type="button" className="primary" onClick={goNext}>Continue</button>:<button type="submit" className="primary" disabled={loading}>{loading?'Creating account...':'Create account'}</button>}</div>:<button type="submit" className="primary full" disabled={loading}>{loading?'Please wait...':'Sign in'}</button>}
+ <div className="switch-copy">{mode==='login'?'New to LMS?':'Already have an account?'}<button type="button" className="text-button" onClick={()=>switchMode(mode==='login'?'register':'login')}>{mode==='login'?'Create account':'Sign in'}</button></div>
+ </form></div></section></div>;
+}
