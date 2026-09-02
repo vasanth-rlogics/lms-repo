@@ -1,0 +1,3 @@
+const BASE='/server/customer_auth_api/api/documents';
+async function request(path='',options={}){const response=await fetch(`${BASE}${path}`,{credentials:'include',headers:{'Content-Type':'application/json',...(options.headers||{})},...options});const data=await response.json().catch(()=>({}));if(!response.ok){const error=new Error(data.message||'Document request failed.');error.data=data;throw error}return data}
+export const documentsApi={list:applicationId=>request(applicationId?`?applicationId=${encodeURIComponent(applicationId)}`:''),create:payload=>request('',{method:'POST',body:JSON.stringify(payload)})};
