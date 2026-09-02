@@ -4,5 +4,6 @@ export const applicationsApi={
  list:()=>request(),
  get:id=>request(`/${encodeURIComponent(id)}`),
  loanTypes:()=>request('/loan-types'),
- create:payload=>request('',{method:'POST',body:JSON.stringify(payload)})
+ create:payload=>request('',{method:'POST',body:JSON.stringify(payload)}),
+ runCreditCheck:(id,consent)=>request(`/${encodeURIComponent(id)}/credit-check`,{method:'POST',body:JSON.stringify({consent})})
 };
