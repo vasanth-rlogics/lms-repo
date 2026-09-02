@@ -28,7 +28,10 @@ jobs:
           node-version: '22'
 
       - name: Install dependencies
-        run: npm install
+        run: |
+          rm -rf node_modules
+          npm install --include=optional
+          npm install --no-save @rolldown/binding-linux-x64-gnu
 
       - name: Build frontend
         run: npm run build
