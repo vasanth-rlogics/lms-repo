@@ -6,6 +6,7 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Applications from './pages/Applications';
 import NewApplication from './pages/NewApplication';
+import ApplicationDetails from './pages/ApplicationDetails';
 import Documents from './pages/Documents';
 import Payments from './pages/Payments';
 import Profile from './pages/Profile';
@@ -21,6 +22,7 @@ export default function App(){
   <Route path="/dashboard" element={<Protected user={user} loading={loading}><Dashboard user={user}/></Protected>}/>
   <Route path="/applications" element={<Protected user={user} loading={loading}><Applications user={user}/></Protected>}/>
   <Route path="/applications/new" element={<Protected user={user} loading={loading}><NewApplication user={user}/></Protected>}/>
+  <Route path="/applications/:id" element={<Protected user={user} loading={loading}><ApplicationDetails user={user}/></Protected>}/>
   <Route path="/documents" element={<Protected user={user} loading={loading}><Documents user={user}/></Protected>}/>
   <Route path="/payments" element={<Protected user={user} loading={loading}><Payments user={user}/></Protected>}/>
   <Route path="/profile" element={<Protected user={user} loading={loading}><Profile user={user}/></Protected>}/>
