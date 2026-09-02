@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Applications from './pages/Applications';
+import NewApplication from './pages/NewApplication';
 import Documents from './pages/Documents';
 import Payments from './pages/Payments';
 import Profile from './pages/Profile';
@@ -19,6 +20,7 @@ export default function App(){
   <Route path="/register" element={user?<Navigate to="/dashboard" replace/>:<Register/>}/>
   <Route path="/dashboard" element={<Protected user={user} loading={loading}><Dashboard user={user}/></Protected>}/>
   <Route path="/applications" element={<Protected user={user} loading={loading}><Applications user={user}/></Protected>}/>
+  <Route path="/applications/new" element={<Protected user={user} loading={loading}><NewApplication user={user}/></Protected>}/>
   <Route path="/documents" element={<Protected user={user} loading={loading}><Documents user={user}/></Protected>}/>
   <Route path="/payments" element={<Protected user={user} loading={loading}><Payments user={user}/></Protected>}/>
   <Route path="/profile" element={<Protected user={user} loading={loading}><Profile user={user}/></Protected>}/>
