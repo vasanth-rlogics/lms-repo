@@ -1,0 +1,120 @@
+:root{
+  --bg:#f4f7f5;
+  --surface:#ffffff;
+  --surface-soft:#f8fbf9;
+  --ink:#0b0f0d;
+  --muted:#68736d;
+  --line:#dde5e0;
+  --black:#0b0f0d;
+  --black-2:#121816;
+  --green:#19a463;
+  --green-dark:#117948;
+  --green-soft:#e8f7ef;
+  --danger:#c7372f;
+  --warning:#9a6a18;
+  --radius:12px;
+  --shadow:0 8px 24px rgba(11,15,13,.06);
+  --font:Inter,"Segoe UI",system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
+}
+html,body,#root{background:var(--bg)!important;color:var(--ink)!important;font-family:var(--font)!important;overflow-x:hidden}
+body,button,input,select,textarea{font-family:var(--font)!important}
+body{font-size:13px}
+h1,h2,h3,h4,h5,h6,strong,b{color:var(--ink)}
+a{color:var(--green-dark)}
+button{transition:background .16s ease,border-color .16s ease,transform .16s ease,box-shadow .16s ease}
+button:active{transform:translateY(1px)}
+input,select,textarea{border-color:var(--line)!important;border-radius:9px!important;background:#fff!important;color:var(--ink)!important}
+input:focus,select:focus,textarea:focus{border-color:var(--green)!important;box-shadow:0 0 0 3px rgba(25,164,99,.1)!important;outline:none!important}
+
+/* shell */
+.portal-shell{background:var(--bg)!important;color:var(--ink)!important}
+.portal-sidebar{background:var(--black)!important;border-right:1px solid #1b2420!important;color:#fff!important}
+.portal-brand>span{background:var(--green)!important;color:#06120c!important}
+.portal-brand strong{color:#fff!important}.portal-brand small,.portal-nav-label{color:#8fa096!important}
+.portal-nav-link{color:#c9d2cd!important}.portal-nav-link i{color:#8fa096!important}
+.portal-nav-link:hover{background:#121b17!important;color:#fff!important}
+.portal-nav-link.active{background:#123522!important;color:#fff!important;box-shadow:none!important}
+.portal-nav-link.active i{color:#5ee09a!important}
+.portal-secure>b{background:#32d583!important}.portal-secure strong{color:#fff!important}.portal-secure small{color:#829089!important}
+.portal-sidebar-footer button{background:#121816!important;border-color:#243029!important;color:#d7dfda!important}
+.portal-topbar small{color:var(--green-dark)!important}.portal-topbar h1{font-size:24px!important}.portal-topbar p{color:var(--muted)!important;font-size:11px!important}
+.portal-user>span{background:var(--green-soft)!important;color:var(--green-dark)!important}.portal-user button{background:#fff!important;border-color:var(--line)!important;color:#34423a!important}
+.portal-mobile-nav{background:var(--black)!important;border-color:#1d2722!important}.portal-mobile-nav .portal-nav-link.active{background:#123522!important}
+
+/* shared cards */
+.applications-card,.documents-card,.profile-hero,.profile-panel,.payments-summary article,.payments-table-card,.newapp-card,.application-state-card,.application-summary-card,.application-tracker-card,.application-info-card,.application-remarks,.decision-card,.credit-consent-card,.approval-route-card,.document-card,.document-details-card,.upload-card,.recovery-card,.login-card,.register-card{background:var(--surface)!important;border:1px solid var(--line)!important;border-radius:var(--radius)!important;box-shadow:var(--shadow)!important}
+.applications-card,.documents-card,.profile-panel,.payments-table-card,.newapp-card,.decision-card,.application-info-card,.application-tracker-card{padding:18px!important}
+
+/* primary actions */
+.login-submit,.register-next,.newapp-card footer .primary,.applications-card header button,.applications-empty button,.documents-card button,.profile-panel header button,.application-summary-actions button,.credit-consent-card>button,.approval-route-card>button,.pay-demo,.pay-online,.recovery-submit,.upload-submit{background:var(--green)!important;border-color:var(--green)!important;color:#06120c!important;box-shadow:none!important}
+.login-submit:hover,.register-next:hover,.newapp-card footer .primary:hover,.applications-card header button:hover,.documents-card button:hover,.profile-panel header button:hover,.pay-online:hover,.recovery-submit:hover{background:#159458!important}
+
+/* secondary buttons */
+.register-back,.newapp-card footer .secondary,.dashboard-panel header>button,.application-back,.portal-user button{background:#fff!important;color:#34423a!important;border-color:var(--line)!important}
+
+/* auth */
+.login-page,.register-page,.recovery-page{background:var(--bg)!important}
+.login-panel,.register-aside,.recovery-aside{background:linear-gradient(150deg,#080b0a,#111914)!important;color:#fff!important}
+.login-brand span,.register-brand span,.recovery-brand span{background:var(--green)!important;color:#06120c!important}
+.login-copy small,.register-copy small,.recovery-copy small,.login-card header>span,.register-card header>span,.recovery-card header>span{color:#4ecb88!important}
+.login-copy p,.register-copy p,.recovery-copy p{color:#cdd7d1!important}
+.login-note,.register-security{border-color:#253129!important;background:#121816!important;color:#d9e2dc!important}
+.login-card,.register-card,.recovery-card{border-radius:14px!important}
+.login-card h2,.register-card h2,.recovery-card h2{color:var(--ink)!important;font-size:26px!important}
+.login-card header p,.register-card header p,.recovery-card header p,.login-switch,.register-login{color:var(--muted)!important}
+.login-switch a,.register-login a,.login-forgot,.recovery-link{color:var(--green-dark)!important}
+.password-eye{color:#5f6f66!important}
+
+/* form system */
+.form-field-label,.newapp-form label,.profile-grid label{font-size:12px!important;color:#34423a!important;font-weight:700!important}
+.form-field-label em{color:#8a978f!important}
+.form-field-control input,.form-field-control select,.newapp-form input,.newapp-form textarea,.profile-grid input{height:42px!important;border-radius:9px!important;font-size:12px!important}
+.form-field-state{font-size:10px!important}
+.is-valid .form-field-control input,.is-valid .form-field-control select{border-color:var(--green)!important;background:#fbfefc!important}
+.is-valid .form-field-state{background:var(--green-soft)!important;color:var(--green-dark)!important}
+.form-field-message.success{color:var(--green-dark)!important}
+
+/* dashboard */
+.dash-banner{background:linear-gradient(120deg,#0b0f0d,#16231c)!important;border-color:#1f2b25!important;color:#fff!important}
+.banner-mark{background:#193126!important;color:#5ee09a!important}
+.banner-copy small{color:#5ee09a!important}.banner-copy h2{color:#fff!important}.banner-copy p{color:#c9d4ce!important}
+.banner-actions button{background:#fff!important;border-color:#fff!important;color:#101713!important}.banner-actions .dark{background:var(--green)!important;border-color:var(--green)!important;color:#06120c!important}
+.dash-kpis>article,.activity-card,.actions-card{border-color:var(--line)!important;border-radius:12px!important;box-shadow:var(--shadow)!important}
+.kpi-icon{background:#edf2ef!important;color:#26352d!important}.kpi-icon.amber{background:#f4f1e8!important;color:#765e28!important}.kpi-icon.green{background:var(--green-soft)!important;color:var(--green-dark)!important}
+.mini-donut{background:conic-gradient(var(--green) var(--p),#dce6e0 0 100%)!important}.payment-legend .paid-dot{background:var(--green)!important}.payment-legend i{background:#c7d4cc!important}
+.loan-status{background:var(--green-soft)!important;color:var(--green-dark)!important}.actions-card>button>i{background:var(--green)!important}
+
+/* applications */
+.applications-card h2,.application-summary-card h2,.newapp-card h2,.decision-card h3{color:var(--ink)!important}
+.application-main>span,.loan-type-grid button>span,.payments-empty-icon,.profile-avatar{background:var(--green-soft)!important;color:var(--green-dark)!important;box-shadow:none!important}
+.application-open,.application-kicker,.credit-consent-copy>span,.approval-route-card>div>span,.newapp-card header small{color:var(--green-dark)!important}
+.application-status-pill,.application-status{background:#eef4f0!important;color:#335343!important}
+.newapp-stepper .active span,.register-step.active b{background:var(--green)!important;border-color:var(--green)!important;color:#06120c!important}
+.newapp-stepper .active,.register-step.active span{color:var(--ink)!important}
+.register-step.done b{background:var(--green-soft)!important;color:var(--green-dark)!important}
+.register-stepper>i.done{background:#8fd7b3!important}
+.loan-type-grid button:hover,.loan-type-grid button.selected{border-color:var(--green)!important;background:#f7fcf9!important;box-shadow:0 0 0 3px rgba(25,164,99,.08)!important}
+
+/* profile */
+.profile-hero{background:linear-gradient(135deg,#fff,#f7fbf8)!important}.profile-hero span{color:var(--green-dark)!important}.profile-panel h3{color:var(--ink)!important}
+.profile-success{background:var(--green-soft)!important;color:var(--green-dark)!important;border-color:#bfe8d2!important}
+
+/* payments */
+.payments-hero{background:linear-gradient(135deg,#080b0a,#15251d)!important;border-radius:14px!important;box-shadow:var(--shadow)!important}
+.payments-hero>div:first-child>span,.payments-table-card header span{color:#59d995!important}.payments-hero p,.next-emi-card span,.next-emi-card small{color:#c8d5ce!important}
+.next-emi-card{background:#122019!important;border-color:#26382f!important;border-radius:12px!important}
+.payments-summary article,.payments-table-card{border-radius:12px!important}.payments-summary strong,.payments-table-card h3,.payments-table-card td strong,.payments-table-card td b{color:var(--ink)!important}
+.gateway-badge.live,.payment-status.paid{background:var(--green-soft)!important;color:var(--green-dark)!important}.pay-online{background:var(--green)!important;color:#06120c!important}.paid-check{color:var(--green-dark)!important}
+
+/* documents */
+.doc-icon{background:var(--green-soft)!important;color:var(--green-dark)!important}.doc-status.verified{background:var(--green-soft)!important;color:var(--green-dark)!important}
+
+/* recovery */
+.recovery-success{background:var(--green-soft)!important;color:var(--green-dark)!important;border-color:#bfe8d2!important}
+
+@media(max-width:760px){
+  .portal-topbar h1{font-size:21px!important}
+  .applications-card,.documents-card,.profile-panel,.payments-table-card,.newapp-card{padding:14px!important;border-radius:10px!important}
+  .login-card,.register-card,.recovery-card{padding:22px!important}
+  .payments-hero{padding:22px 18px!important}
+}
