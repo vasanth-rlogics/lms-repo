@@ -11,5 +11,7 @@ export const authApi={
   me:()=>request('/me'),
   login:(payload)=>request('/login',{method:'POST',body:JSON.stringify(payload)}),
   register:(payload)=>request('/register',{method:'POST',body:JSON.stringify(payload)}),
+  forgotPassword:(email)=>request('/forgot-password',{method:'POST',body:JSON.stringify({email})}),
+  resetPassword:(payload)=>request('/reset-password',{method:'POST',body:JSON.stringify(payload)}),
   logout:()=>request('/logout',{method:'POST'})
 };
